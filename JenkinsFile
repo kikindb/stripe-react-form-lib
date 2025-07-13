@@ -7,7 +7,8 @@ pipeline {
   
   environment {
     SONARQUBE_ENV = 'sonarserver'
-    NEXUS_REGISTRY = 'http://192.168.1.197:8081/repository/npm-releases/'
+    NEXUS_REGISTRY = '192.168.56.15:8081'
+    NEXUS_REPOSITORY = 'npm-releases'
   }
 
   stages {
@@ -66,13 +67,13 @@ pipeline {
       sh '''
         AUTH=$(echo -n "$NEXUS_USER:$NEXUS_PASS" | base64)
 
-        echo "//192.168.1.197:8081/repository/npm-releases/:_auth=\${AUTH}" > .npmrc
-        echo "//192.168.1.197:8081/repository/npm-releases/:username=\${NEXUS_USER}" >> .npmrc
-        echo "//192.168.1.197:8081/repository/npm-releases/:email=jenkins@example.com" >> .npmrc
+        echo "//${NEXUS_REGISTRY}/repository/${NEXUS_REPOSITORY}/:_auth=\${AUTH}" > .npmrc
+        echo "//${NEXUS_REGISTRY}/repository/${NEXUS_REPOSITORY}/:username=\${NEXUS_USER}" >> .npmrc
+        echo "//${NEXUS_REGISTRY}/repository/${NEXUS_REPOSITORY}/:email=jenkins@example.com" >> .npmrc
         echo "always-auth=true" >> .npmrc
-        echo "registry=http://192.168.1.197:8081/repository/npm-releases/" >> .npmrc
+        echo "registry=http://${NEXUS_REGISTRY}/repository/${NEXUS_REPOSITORY}/" >> .npmrc
 
-        npm publish --registry=http://192.168.1.197:8081/repository/npm-releases/
+        npm publish --registry=http://${NEXUS_REGISTRY}/repository/${NEXUS_REPOSITORY}/
       '''
     }
   }
@@ -86,4 +87,3 @@ pipeline {
     }
   }
 }
-
