@@ -1,0 +1,89 @@
+pipeline {
+  agent any
+
+  tools {
+    nodejs 'NODE22'  // Your configured Node.js installation in Jenkins
+  }
+  
+  environment {
+    SONARQUBE_ENV = 'sonarserver'
+    NEXUS_REGISTRY = 'http://192.168.1.197:8081/repository/npm-releases/'
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        git url: 'https://github.com/kikindb/stripe-react-form-lib.git', branch: 'main'
+      }
+    }
+
+    stage('Install Dependencies') {
+      steps {
+        sh 'npm ci'
+      }
+    }
+
+    stage('Lint and Test') {
+      steps {
+        sh 'npm run test || true'
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      environment {
+        SONAR_SCANNER_OPTS = '-Dsonar.projectKey=formwidget'
+      }
+      steps {
+        withSonarQubeEnv("${SONARQUBE_ENV}") {
+          sh 'npx sonar-scanner'
+        }
+      }
+    }
+
+    stage('Build') {
+      steps {
+        sh 'npm run build'
+      }
+    }
+
+    stage('Package NPM Artifact') {
+      steps {
+        sh 'npm version patch --no-git-tag-version'
+        sh 'npm pack'
+      }
+      post {
+        success {
+          echo 'npm package created.'
+          archiveArtifacts artifacts: "*.tgz", fingerprint: true
+        }
+      }
+    }
+
+    stage('Publish to Nexus NPM') {
+  steps {
+    withCredentials([usernamePassword(credentialsId: 'nexuslogin', usernameVariable: 'NEXUS_USER', passwordVariable: 'NEXUS_PASS')]) {
+      sh '''
+        AUTH=$(echo -n "$NEXUS_USER:$NEXUS_PASS" | base64)
+
+        echo "//192.168.1.197:8081/repository/npm-releases/:_auth=\${AUTH}" > .npmrc
+        echo "//192.168.1.197:8081/repository/npm-releases/:username=\${NEXUS_USER}" >> .npmrc
+        echo "//192.168.1.197:8081/repository/npm-releases/:email=jenkins@example.com" >> .npmrc
+        echo "always-auth=true" >> .npmrc
+        echo "registry=http://192.168.1.197:8081/repository/npm-releases/" >> .npmrc
+
+        npm publish --registry=http://192.168.1.197:8081/repository/npm-releases/
+      '''
+    }
+  }
+}
+
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}
+
